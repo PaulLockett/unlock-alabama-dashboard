@@ -66,6 +66,18 @@
       <div class="avg" id="avgAll"></div>
     </div>
   </div>
+  <div class="stats" style="margin-top: 12px;">
+    <div class="stat-card builders">
+      <div class="label">Builder Trend</div>
+      <div class="value" id="builderSlope" style="font-size: 1.4rem;"></div>
+      <div class="avg" id="builderTrendDesc"></div>
+    </div>
+    <div class="stat-card guides">
+      <div class="label">Guide Trend</div>
+      <div class="value" id="guideSlope" style="font-size: 1.4rem;"></div>
+      <div class="avg" id="guideTrendDesc"></div>
+    </div>
+  </div>
   <p class="updated" id="lastUpdated"></p>
 </div>
 
@@ -88,6 +100,22 @@ for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
   guideData.push(guidesRaw[key] || 0);
 }
 
+// Linear regression: returns {slope, intercept, values}
+function linReg(data) {
+  const n = data.length;
+  let sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0;
+  for (let i = 0; i < n; i++) {
+    sumX += i; sumY += data[i]; sumXY += i * data[i]; sumX2 += i * i;
+  }
+  const slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
+  const intercept = (sumY - slope * sumX) / n;
+  const values = data.map((_, i) => +(slope * i + intercept).toFixed(2));
+  return { slope, intercept, values };
+}
+
+const builderTrend = linReg(builderData);
+const guideTrend = linReg(guideData);
+
 const totalB = builderData.reduce((a, b) => a + b, 0);
 const totalG = guideData.reduce((a, b) => a + b, 0);
 const days = labels.length;
@@ -99,6 +127,16 @@ document.getElementById('avgBuilders').textContent = (totalB / days).toFixed(1) 
 document.getElementById('avgGuides').textContent = (totalG / days).toFixed(1) + ' / day';
 document.getElementById('avgAll').textContent = ((totalB + totalG) / days).toFixed(1) + ' / day';
 document.getElementById('lastUpdated').textContent = 'Last updated: ' + end.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+
+// Display slopes
+const bSlope = builderTrend.slope;
+const gSlope = guideTrend.slope;
+const bSign = bSlope >= 0 ? '+' : '';
+const gSign = gSlope >= 0 ? '+' : '';
+document.getElementById('builderSlope').textContent = bSign + bSlope.toFixed(2) + '/day';
+document.getElementById('guideSlope').textContent = gSign + gSlope.toFixed(2) + '/day';
+document.getElementById('builderTrendDesc').textContent = bSlope >= 0 ? 'Trending up' : 'Trending down';
+document.getElementById('guideTrendDesc').textContent = gSlope >= 0 ? 'Trending up' : 'Trending down';
 
 const shortLabels = labels.map(l => {
   const d = new Date(l + 'T00:00:00');
@@ -132,6 +170,28 @@ new Chart(ctx, {
         pointRadius: 3,
         pointHoverRadius: 6,
         borderWidth: 2.5,
+      },
+      {
+        label: 'Builder Trend',
+        data: builderTrend.values,
+        borderColor: 'rgba(67, 97, 238, 0.45)',
+        borderDash: [6, 4],
+        borderWidth: 2,
+        pointRadius: 0,
+        pointHoverRadius: 0,
+        fill: false,
+        tension: 0,
+      },
+      {
+        label: 'Guide Trend',
+        data: guideTrend.values,
+        borderColor: 'rgba(247, 37, 133, 0.45)',
+        borderDash: [6, 4],
+        borderWidth: 2,
+        pointRadius: 0,
+        pointHoverRadius: 0,
+        fill: false,
+        tension: 0,
       }
     ]
   },
